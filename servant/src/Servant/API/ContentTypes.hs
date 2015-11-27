@@ -10,6 +10,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
+#if !MIN_VERSION_base(4,8,0)
+{-# LANGUAGE OverlappingInstances  #-}
+#endif
 {-# OPTIONS_HADDOCK not-home       #-}
 
 -- | A collection of basic Content-Types (also known as Internet Media
@@ -19,7 +22,7 @@
 --
 -- Content-Types are used in `ReqBody` and the method combinators:
 --
--- >>> type MyEndpoint = ReqBody '[JSON, PlainText] Book :> Get '[JSON, PlainText] :> Book
+-- >>> type MyEndpoint = ReqBody '[JSON, PlainText] Book :> Get '[JSON, PlainText] Book
 --
 -- Meaning the endpoint accepts requests of Content-Type @application/json@
 -- or @text/plain;charset-utf8@, and returns data in either one of those
@@ -62,7 +65,6 @@ module Servant.API.ContentTypes
     , AllMimeUnrender(..)
     , FromFormUrlEncoded(..)
     , ToFormUrlEncoded(..)
-    , IsNonEmpty
     , eitherDecodeLenient
     , canHandleAcceptH
     ) where
@@ -165,12 +167,22 @@ class (AllMimeRender list a) => AllCTRender (list :: [*]) a where
     -- mimetype).
     handleAcceptH :: Proxy list -> AcceptHeader -> a -> Maybe (ByteString, ByteString)
 
-instance (AllMimeRender ctyps a, IsNonEmpty ctyps) => AllCTRender ctyps a where
+instance
+#if MIN_VERSION_base(4,8,0)
+        {-# OVERLAPPABLE #-}
+#endif
+        (AllMimeRender (c ': cs) a) => AllCTRender (c ': cs) a where
     handleAcceptH _ (AcceptHeader accept) val = M.mapAcceptMedia lkup accept
-      where pctyps = Proxy :: Proxy ctyps
+      where pctyps = Proxy :: Proxy (c ': cs)
             amrs = allMimeRender pctyps val
             lkup = fmap (\(a,b) -> (a, (fromStrict $ M.renderHeader a, b))) amrs
 
+instance
+#if MIN_VERSION_base(4,8,0)
+        {-# OVERLAPPING #-}
+#endif
+        AllCTRender '[] () where
+    handleAcceptH _ _ _ = Just ("", "")
 
 --------------------------------------------------------------------------
 -- * Unrender
@@ -199,14 +211,13 @@ instance (AllMimeRender ctyps a, IsNonEmpty ctyps) => AllCTRender ctyps a where
 class Accept ctype => MimeUnrender ctype a where
     mimeUnrender :: Proxy ctype -> ByteString -> Either String a
 
-class (IsNonEmpty list) => AllCTUnrender (list :: [*]) a where
+class AllCTUnrender (list :: [*]) a where
     handleCTypeH :: Proxy list
                  -> ByteString     -- Content-Type header
                  -> ByteString     -- Request body
                  -> Maybe (Either String a)
 
-instance ( AllMimeUnrender ctyps a, IsNonEmpty ctyps
-         ) => AllCTUnrender ctyps a where
+instance ( AllMimeUnrender ctyps a ) => AllCTUnrender ctyps a where
     handleCTypeH _ ctypeH body = M.mapContentMedia lkup (cs ctypeH)
       where lkup = allMimeUnrender (Proxy :: Proxy ctyps) body
 
@@ -247,8 +258,7 @@ instance ( MimeRender ctyp a
         where pctyp = Proxy :: Proxy ctyp
               pctyps = Proxy :: Proxy (ctyp' ': ctyps)
 
-
-instance AllMimeRender '[] a where
+instance AllMimeRender '[] () where
     allMimeRender _ _ = []
 
 --------------------------------------------------------------------------
@@ -269,10 +279,6 @@ instance ( MimeUnrender ctyp a
                            :(allMimeUnrender pctyps val)
         where pctyp = Proxy :: Proxy ctyp
               pctyps = Proxy :: Proxy ctyps
-
-type family IsNonEmpty (list :: [*]) :: Constraint where
-    IsNonEmpty (x ': xs)   = ()
-
 
 --------------------------------------------------------------------------
 -- * MimeRender Instances

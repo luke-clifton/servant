@@ -131,14 +131,20 @@ captureSpec = do
 
 type GetApi = Get '[JSON] Person
         :<|> "empty" :> Get '[] ()
+        :<|> "emptyWithHeaders" :> Get '[] (Headers '[Header "H" Int] ())
         :<|> "post" :> Post '[] ()
+
 getApi :: Proxy GetApi
 getApi = Proxy
 
 getSpec :: Spec
 getSpec = do
   describe "Servant.API.Get" $ do
-    let server = return alice :<|> return () :<|> return ()
+    let server = return alice
+            :<|> return ()
+            :<|> return (addHeader 5 ())
+            :<|> return ()
+
     with (return $ serve getApi server) $ do
 
       it "allows to GET a Person" $ do
@@ -153,6 +159,9 @@ getSpec = do
       it "returns 204 if the type is '()'" $ do
         get "/empty" `shouldRespondWith` ""{ matchStatus = 204 }
 
+      it "returns headers" $ do
+        get "/emptyWithHeaders" `shouldRespondWith` "" { matchHeaders = [ "H" <:> "5" ] }
+
       it "returns 406 if the Accept header is not supported" $ do
         Test.Hspec.Wai.request methodGet "" [(hAccept, "crazy/mime")] ""
           `shouldRespondWith` 406
@@ -161,7 +170,10 @@ getSpec = do
 headSpec :: Spec
 headSpec = do
   describe "Servant.API.Head" $ do
-    let server = return alice :<|> return () :<|> return ()
+    let server = return alice
+            :<|> return ()
+            :<|> return (addHeader 5 ())
+            :<|> return ()
     with (return $ serve getApi server) $ do
 
       it "allows to GET a Person" $ do

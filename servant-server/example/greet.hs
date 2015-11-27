@@ -34,7 +34,7 @@ type TestApi =
   :<|> "greet" :> ReqBody '[JSON] Greet :> Post '[JSON] Greet
 
        -- DELETE /greet/:greetid
-  :<|> "greet" :> Capture "greetid" Text :> Delete '[JSON] ()
+  :<|> "greet" :> Capture "greetid" Text :> Delete '[] ()
 
 testApi :: Proxy TestApi
 testApi = Proxy
