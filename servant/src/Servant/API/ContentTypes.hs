@@ -140,23 +140,7 @@ instance Accept OctetStream where
     contentType _ = "application" M.// "octet-stream"
 
 newtype AcceptHeader = AcceptHeader BS.ByteString
-    deriving (Eq, Show, Read, Generic, Typeable)
-
-type ContentTypeHeader = ByteString
-
--- @AcceptResult@ encodes the result of trying to match an 'Accept' header.
-data AcceptResult
-    = Acceptable ContentTypeHeader ByteString
-    -- ^ Acceptable serialization - 'Content-Type' header plus body
-    | NotAcceptable
-    -- ^ No acceptable response
-    | EmptyBody
-    -- ^ Empty body
-    deriving (Eq, Show, Read, Generic, Typeable)
-
-chosenContentType :: AcceptResult -> Maybe ContentTypeHeader
-chosenContentType (Acceptable cth _) = Just cth
-chosenContentType _                  = Nothing
+    deriving (Eq, Show)
 
 -- * Render (serializing)
 
@@ -179,26 +163,17 @@ class Accept ctype => MimeRender ctype a where
     mimeRender  :: Proxy ctype -> a -> ByteString
 
 class (AllMimeRender list a) => AllCTRender (list :: [*]) a where
-    handleAcceptH :: Proxy list -> AcceptHeader -> a -> AcceptResult
+    -- If the Accept header can be matched, returns (Just) a tuple of the
+    -- Content-Type and response (serialization of @a@ into the appropriate
+    -- mimetype).
+    handleAcceptH :: Proxy list -> AcceptHeader -> a -> Maybe (ByteString, ByteString)
 
-instance
-#if MIN_VERSION_base(4,8,0)
-        {-# OVERLAPPABLE #-}
-#endif
-        (AllMimeRender (c ': cs) a) => AllCTRender (c ': cs) a where
-    handleAcceptH _ (AcceptHeader accept) val = case M.mapAcceptMedia lkup accept of
-       Nothing        -> NotAcceptable
-       Just (ct, bd)  -> Acceptable ct bd
-      where pctyps = Proxy :: Proxy (c ': cs)
+instance (AllMimeRender ctyps a, IsNonEmpty ctyps) => AllCTRender ctyps a where
+    handleAcceptH _ (AcceptHeader accept) val = M.mapAcceptMedia lkup accept
+      where pctyps = Proxy :: Proxy ctyps
             amrs = allMimeRender pctyps val
             lkup = fmap (\(a,b) -> (a, (fromStrict $ M.renderHeader a, b))) amrs
 
-instance
-#if MIN_VERSION_base(4,8,0)
-        {-# OVERLAPPING #-}
-#endif
-        AllCTRender '[] () where
-    handleAcceptH _ _ _ = EmptyBody
 
 --------------------------------------------------------------------------
 -- * Unrender
