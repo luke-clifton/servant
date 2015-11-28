@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -93,7 +94,7 @@ import qualified Data.Text.Encoding               as TextS
 import qualified Data.Text.Lazy                   as TextL
 import qualified Data.Text.Lazy.Encoding          as TextL
 import           Data.Typeable
-import           GHC.Exts                         (Constraint)
+import           GHC.Generics                     (Generic)
 import qualified Network.HTTP.Media               as M
 import           Network.URI                      (escapeURIString,
                                                    isUnreserved, unEscapeString)
@@ -139,7 +140,23 @@ instance Accept OctetStream where
     contentType _ = "application" M.// "octet-stream"
 
 newtype AcceptHeader = AcceptHeader BS.ByteString
-    deriving (Eq, Show)
+    deriving (Eq, Show, Read, Generic, Typeable)
+
+type ContentTypeHeader = ByteString
+
+-- @AcceptResult@ encodes the result of trying to match an 'Accept' header.
+data AcceptResult
+    = Acceptable ContentTypeHeader ByteString
+    -- ^ Acceptable serialization - 'Content-Type' header plus body
+    | NotAcceptable
+    -- ^ No acceptable response
+    | EmptyBody
+    -- ^ Empty body
+    deriving (Eq, Show, Read, Generic, Typeable)
+
+chosenContentType :: AcceptResult -> Maybe ContentTypeHeader
+chosenContentType (Acceptable cth _) = Just cth
+chosenContentType _                  = Nothing
 
 -- * Render (serializing)
 
@@ -162,17 +179,16 @@ class Accept ctype => MimeRender ctype a where
     mimeRender  :: Proxy ctype -> a -> ByteString
 
 class (AllMimeRender list a) => AllCTRender (list :: [*]) a where
-    -- If the Accept header can be matched, returns (Just) a tuple of the
-    -- Content-Type and response (serialization of @a@ into the appropriate
-    -- mimetype).
-    handleAcceptH :: Proxy list -> AcceptHeader -> a -> Maybe (ByteString, ByteString)
+    handleAcceptH :: Proxy list -> AcceptHeader -> a -> AcceptResult
 
 instance
 #if MIN_VERSION_base(4,8,0)
         {-# OVERLAPPABLE #-}
 #endif
         (AllMimeRender (c ': cs) a) => AllCTRender (c ': cs) a where
-    handleAcceptH _ (AcceptHeader accept) val = M.mapAcceptMedia lkup accept
+    handleAcceptH _ (AcceptHeader accept) val = case M.mapAcceptMedia lkup accept of
+       Nothing        -> NotAcceptable
+       Just (ct, bd)  -> Acceptable ct bd
       where pctyps = Proxy :: Proxy (c ': cs)
             amrs = allMimeRender pctyps val
             lkup = fmap (\(a,b) -> (a, (fromStrict $ M.renderHeader a, b))) amrs
@@ -182,7 +198,7 @@ instance
         {-# OVERLAPPING #-}
 #endif
         AllCTRender '[] () where
-    handleAcceptH _ _ _ = Just ("", "")
+    handleAcceptH _ _ _ = EmptyBody
 
 --------------------------------------------------------------------------
 -- * Unrender

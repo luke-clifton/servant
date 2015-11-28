@@ -477,8 +477,8 @@ instance (ToByteString l, AllHeaderSamples ls, ToSample l, KnownSymbol h)
 
 -- | Synthesise a sample value of a type, encoded in the specified media types.
 sampleByteString
-    :: forall ctypes a. (ToSample a, IsNonEmpty ctypes, AllMimeRender ctypes a)
-    => Proxy ctypes
+    :: forall ct cts a. (ToSample a, AllMimeRender (ct ': cts) a)
+    => Proxy (ct ': cts)
     -> Proxy a
     -> [(M.MediaType, ByteString)]
 sampleByteString ctypes@Proxy Proxy =
@@ -487,8 +487,8 @@ sampleByteString ctypes@Proxy Proxy =
 -- | Synthesise a list of sample values of a particular type, encoded in the
 -- specified media types.
 sampleByteStrings
-    :: forall ctypes a. (ToSample a, IsNonEmpty ctypes, AllMimeRender ctypes a)
-    => Proxy ctypes
+    :: forall ct cts a. (ToSample a, AllMimeRender (ct ': cts) a)
+    => Proxy (ct ': cts)
     -> Proxy a
     -> [(Text, M.MediaType, ByteString)]
 sampleByteStrings ctypes@Proxy Proxy =
@@ -696,24 +696,24 @@ instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPABLe #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a)
-    => HasDocs (Delete cts a) where
+        (ToSample a, AllMimeRender (ct ': cts) a)
+    => HasDocs (Delete (ct ': cts) a) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
     where endpoint' = endpoint & method .~ DocDELETE
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPING #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a
+        (ToSample a, AllMimeRender (ct ': cts) a
          , AllHeaderSamples ls , GetHeaders (HList ls) )
-    => HasDocs (Delete cts (Headers ls a)) where
+    => HasDocs (Delete (ct ': cts) (Headers ls a)) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -722,31 +722,31 @@ instance
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
                            & response.respHeaders .~ hdrs
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPABLe #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a)
-    => HasDocs (Get cts a) where
+        (ToSample a, AllMimeRender (ct ': cts) a)
+    => HasDocs (Get (ct ': cts) a) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
     where endpoint' = endpoint & method .~ DocGET
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPING #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a
+        (ToSample a, AllMimeRender (ct ': cts) a
          , AllHeaderSamples ls , GetHeaders (HList ls) )
-    => HasDocs (Get cts (Headers ls a)) where
+    => HasDocs (Get (ct ': cts) (Headers ls a)) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -755,7 +755,7 @@ instance
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
                            & response.respHeaders .~ hdrs
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance (KnownSymbol sym, HasDocs sublayout)
@@ -771,8 +771,8 @@ instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPABLE #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a)
-    => HasDocs (Post cts a) where
+        (ToSample a, AllMimeRender (ct ': cts) a)
+    => HasDocs (Post (ct ': cts) a) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -780,16 +780,16 @@ instance
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
                            & response.respStatus .~ 201
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPING #-}
 #endif
-         (ToSample a, IsNonEmpty cts, AllMimeRender cts a
+         (ToSample a, AllMimeRender (ct ': cts) a
          , AllHeaderSamples ls , GetHeaders (HList ls) )
-    => HasDocs (Post cts (Headers ls a)) where
+    => HasDocs (Post (ct ': cts) (Headers ls a)) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -799,15 +799,15 @@ instance
                            & response.respTypes .~ allMime t
                            & response.respStatus .~ 201
                            & response.respHeaders .~ hdrs
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPABLE #-}
 #endif
-        (ToSample a, IsNonEmpty cts, AllMimeRender cts a)
-    => HasDocs (Put cts a) where
+        (ToSample a, AllMimeRender (ct ': cts) a)
+    => HasDocs (Put (ct ': cts) a) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -815,16 +815,16 @@ instance
           action' = action & response.respBody .~ take _maxSamples (sampleByteStrings t p)
                            & response.respTypes .~ allMime t
                            & response.respStatus .~ 200
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPING #-}
 #endif
-        ( ToSample a, IsNonEmpty cts, AllMimeRender cts a,
+        ( ToSample a, AllMimeRender (ct ': cts) a,
           AllHeaderSamples ls , GetHeaders (HList ls) )
-    => HasDocs (Put cts (Headers ls a)) where
+    => HasDocs (Put (ct ': cts) (Headers ls a)) where
   docsFor Proxy (endpoint, action) DocOptions{..} =
     single endpoint' action'
 
@@ -834,7 +834,7 @@ instance
                            & response.respTypes .~ allMime t
                            & response.respStatus .~ 200
                            & response.respHeaders .~ hdrs
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance (KnownSymbol sym, ToParam (QueryParam sym a), HasDocs sublayout)
@@ -877,8 +877,8 @@ instance HasDocs Raw where
 -- example data. However, there's no reason to believe that the instances of
 -- 'AllMimeUnrender' and 'AllMimeRender' actually agree (or to suppose that
 -- both are even defined) for any particular type.
-instance (ToSample a, IsNonEmpty cts, AllMimeRender cts a, HasDocs sublayout)
-      => HasDocs (ReqBody cts a :> sublayout) where
+instance (ToSample a, AllMimeRender (ct ': cts) a, HasDocs sublayout)
+      => HasDocs (ReqBody (ct ': cts) a :> sublayout) where
 
   docsFor Proxy (endpoint, action) =
     docsFor sublayoutP (endpoint, action')
@@ -886,7 +886,7 @@ instance (ToSample a, IsNonEmpty cts, AllMimeRender cts a, HasDocs sublayout)
     where sublayoutP = Proxy :: Proxy sublayout
           action' = action & rqbody .~ sampleByteString t p
                            & rqtypes .~ allMime t
-          t = Proxy :: Proxy cts
+          t = Proxy :: Proxy (ct ': cts)
           p = Proxy :: Proxy a
 
 instance (KnownSymbol path, HasDocs sublayout) => HasDocs (path :> sublayout) where
