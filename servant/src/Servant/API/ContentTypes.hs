@@ -140,7 +140,7 @@ instance Accept OctetStream where
     contentType _ = "application" M.// "octet-stream"
 
 newtype AcceptHeader = AcceptHeader BS.ByteString
-    deriving (Eq, Show)
+    deriving (Eq, Show, Read, Typeable, Generic)
 
 -- * Render (serializing)
 
@@ -162,18 +162,35 @@ newtype AcceptHeader = AcceptHeader BS.ByteString
 class Accept ctype => MimeRender ctype a where
     mimeRender  :: Proxy ctype -> a -> ByteString
 
-class (AllMimeRender list a) => AllCTRender (list :: [*]) a where
+class (AllMime list) => AllCTRender (list :: [*]) a where
     -- If the Accept header can be matched, returns (Just) a tuple of the
     -- Content-Type and response (serialization of @a@ into the appropriate
     -- mimetype).
     handleAcceptH :: Proxy list -> AcceptHeader -> a -> Maybe (ByteString, ByteString)
 
-instance (AllMimeRender ctyps a, IsNonEmpty ctyps) => AllCTRender ctyps a where
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPABLE #-}
+#endif
+         (AllMimeRender (ct ': cts) a) => AllCTRender (ct ': cts) a where
     handleAcceptH _ (AcceptHeader accept) val = M.mapAcceptMedia lkup accept
-      where pctyps = Proxy :: Proxy ctyps
+      where pctyps = Proxy :: Proxy (ct ': cts)
             amrs = allMimeRender pctyps val
             lkup = fmap (\(a,b) -> (a, (fromStrict $ M.renderHeader a, b))) amrs
 
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+         AllCTRender '[] () where
+    handleAcceptH _ _ _ = Just ("", "")
+
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+         (AllMime (ct ': cts)) => AllCTRender (ct ': cts) () where
+    handleAcceptH _ _ _ = Just ("", "")
 
 --------------------------------------------------------------------------
 -- * Unrender

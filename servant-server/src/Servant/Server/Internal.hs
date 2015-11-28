@@ -146,38 +146,38 @@ methodCheck method request
   | allowedMethod method request = return $ Route ()
   | otherwise                    = return $ Fail err405
 
-acceptCheck :: (AllMime list) => Proxy list -> B.ByteString -> IO (RouteResult ())
-acceptCheck proxy accH
-  | canHandleAcceptH proxy (AcceptHeader accH) = return $ Route ()
-  | otherwise                                  = return $ Fail err406
+acceptCheck :: (AllMime list) => Bool -> Proxy list -> B.ByteString -> IO (RouteResult ())
+acceptCheck isEmpty proxy accH
+  | isEmpty || canHandleAcceptH proxy (AcceptHeader accH) = return $ Route ()
+  | otherwise                                             = return $ Fail err406
 
 methodRouter :: (AllCTRender ctypes a)
-             => Method -> Proxy ctypes -> Status
+             => Bool -> Method -> Proxy ctypes -> Status
              -> Delayed (ExceptT ServantErr IO a)
              -> Router
-methodRouter method proxy status action = LeafRouter route'
+methodRouter isEmpty method proxy status action = LeafRouter route'
   where
     route' request respond
       | pathIsEmpty request =
           let accH = fromMaybe ct_wildcard $ lookup hAccept $ requestHeaders request
           in runAction (action `addMethodCheck` methodCheck method request
-                               `addAcceptCheck` acceptCheck proxy  accH
+                               `addAcceptCheck` acceptCheck isEmpty proxy accH
                        ) respond $ \ output -> do
                let handleA = handleAcceptH proxy (AcceptHeader accH) output
                processMethodRouter handleA status method Nothing request
       | otherwise = respond $ Fail err404
 
 methodRouterHeaders :: (GetHeaders (Headers h v), AllCTRender ctypes v)
-                    => Method -> Proxy ctypes -> Status
+                    => Bool -> Method -> Proxy ctypes -> Status
                     -> Delayed (ExceptT ServantErr IO (Headers h v))
                     -> Router
-methodRouterHeaders method proxy status action = LeafRouter route'
+methodRouterHeaders isEmpty method proxy status action = LeafRouter route'
   where
     route' request respond
       | pathIsEmpty request =
           let accH    = fromMaybe ct_wildcard $ lookup hAccept $ requestHeaders request
           in runAction (action `addMethodCheck` methodCheck method request
-                               `addAcceptCheck` acceptCheck proxy  accH
+                               `addAcceptCheck` acceptCheck isEmpty proxy accH
                        ) respond $ \ output -> do
                 let headers = getHeaders output
                     handleA = handleAcceptH proxy (AcceptHeader accH) (getResponse output)
@@ -204,7 +204,7 @@ instance
 
   type ServerT (Verb method status ctypes a) m = m a
 
-  route Proxy = methodRouter method (Proxy :: Proxy ctypes) status
+  route Proxy = methodRouter False method (Proxy :: Proxy ctypes) status
     where method = reflectMethod (Proxy :: Proxy method)
           status = toEnum . fromInteger $ natVal (Proxy :: Proxy status)
 
@@ -217,7 +217,7 @@ instance
 
   type ServerT (Verb method status '[] ()) m = m ()
 
-  route Proxy = methodRouter method (Proxy :: Proxy '[]) status
+  route Proxy = methodRouter True method (Proxy :: Proxy '[]) status
     where method = reflectMethod (Proxy :: Proxy method)
           status = toEnum . fromInteger $ natVal (Proxy :: Proxy status)
 
@@ -231,7 +231,7 @@ instance
 
   type ServerT (Verb method status ctypes (Headers h a)) m = m (Headers h a)
 
-  route Proxy = methodRouterHeaders method (Proxy :: Proxy ctypes) status
+  route Proxy = methodRouterHeaders False method (Proxy :: Proxy ctypes) status
     where method = reflectMethod (Proxy :: Proxy method)
           status = toEnum . fromInteger $ natVal (Proxy :: Proxy status)
 
@@ -245,7 +245,7 @@ instance
 
   type ServerT (Verb method status '[] (Headers h ())) m = m (Headers h ())
 
-  route Proxy = methodRouterHeaders method (Proxy :: Proxy '[]) status
+  route Proxy = methodRouterHeaders True method (Proxy :: Proxy '[]) status
     where method = reflectMethod (Proxy :: Proxy method)
           status = toEnum . fromInteger $ natVal (Proxy :: Proxy status)
 

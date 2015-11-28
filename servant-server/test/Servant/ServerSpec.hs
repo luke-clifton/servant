@@ -156,9 +156,6 @@ getSpec = do
         post "/" "" `shouldRespondWith` 405
         post "/empty" "" `shouldRespondWith` 405
 
-      it "returns 204 if the type is '()'" $ do
-        get "/empty" `shouldRespondWith` ""{ matchStatus = 204 }
-
       it "returns headers" $ do
         get "/emptyWithHeaders" `shouldRespondWith` "" { matchHeaders = [ "H" <:> "5" ] }
 
@@ -188,10 +185,6 @@ headSpec = do
       it "throws 405 (wrong method) on POSTs" $ do
         post "/" "" `shouldRespondWith` 405
         post "/empty" "" `shouldRespondWith` 405
-
-      it "returns 204 if the type is '()'" $ do
-        response <- Test.Hspec.Wai.request methodHead "/empty" [] ""
-        return response `shouldRespondWith` ""{ matchStatus = 204 }
 
       it "returns 406 if the Accept header is not supported" $ do
         Test.Hspec.Wai.request methodHead "" [(hAccept, "crazy/mime")] ""
@@ -299,24 +292,21 @@ postSpec = do
 
       it "allows to POST a Person" $ do
         post' "/" (encode alice) `shouldRespondWith` "42"{
-          matchStatus = 201
+          matchStatus = 200
          }
 
       it "allows alternative routes if all have request bodies" $ do
         post' "/bla" (encode alice) `shouldRespondWith` "42"{
-          matchStatus = 201
+          matchStatus = 200
          }
 
       it "handles trailing '/' gracefully" $ do
         post' "/bla/" (encode alice) `shouldRespondWith` "42"{
-          matchStatus = 201
+          matchStatus = 200
          }
 
       it "correctly rejects invalid request bodies with status 400" $ do
         post' "/" "some invalid body" `shouldRespondWith` 400
-
-      it "returns 204 if the type is '()'" $ do
-        post' "empty" "" `shouldRespondWith` ""{ matchStatus = 204 }
 
       it "responds with 415 if the request body media type is unsupported" $ do
         let post'' x = Test.Hspec.Wai.request methodPost x [(hContentType
@@ -357,9 +347,6 @@ putSpec = do
       it "correctly rejects invalid request bodies with status 400" $ do
         put' "/" "some invalid body" `shouldRespondWith` 400
 
-      it "returns 204 if the type is '()'" $ do
-        put' "empty" "" `shouldRespondWith` ""{ matchStatus = 204 }
-
       it "responds with 415 if the request body media type is unsupported" $ do
         let put'' x = Test.Hspec.Wai.request methodPut x [(hContentType
                                                             , "application/nonsense")]
@@ -399,9 +386,6 @@ patchSpec = do
       it "correctly rejects invalid request bodies with status 400" $ do
         patch' "/" "some invalid body" `shouldRespondWith` 400
 
-      it "returns 204 if the type is '()'" $ do
-        patch' "empty" "" `shouldRespondWith` ""{ matchStatus = 204 }
-
       it "responds with 415 if the request body media type is unsupported" $ do
         let patch'' x = Test.Hspec.Wai.request methodPatch x [(hContentType
                                                             , "application/nonsense")]
@@ -426,13 +410,13 @@ headerSpec = describe "Servant.API.Header" $ do
         let delete' x = Test.Hspec.Wai.request methodDelete x [("MyHeader" ,"5")]
 
         it "passes the header to the handler (Int)" $
-            delete' "/" "" `shouldRespondWith` 204
+            delete' "/" "" `shouldRespondWith` 200
 
     with (return (serve headerApi expectsString)) $ do
         let delete' x = Test.Hspec.Wai.request methodDelete x [("MyHeader" ,"more from you")]
 
         it "passes the header to the handler (String)" $
-            delete' "/" "" `shouldRespondWith` 204
+            delete' "/" "" `shouldRespondWith` 200
 
 
 type RawApi = "foo" :> Raw
@@ -517,7 +501,7 @@ responseHeadersSpec :: Spec
 responseHeadersSpec = describe "ResponseHeaders" $ do
   with (return $ serve (Proxy :: Proxy ResponseHeadersApi) responseHeadersServer) $ do
 
-    let methods = [(methodGet, 200), (methodPost, 201), (methodPut, 200), (methodPatch, 200)]
+    let methods = [(methodGet, 200), (methodPost, 200), (methodPut, 200), (methodPatch, 200)]
 
     it "includes the headers in the response" $
       forM_ methods $ \(method, expected) ->
