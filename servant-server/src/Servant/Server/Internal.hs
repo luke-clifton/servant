@@ -146,10 +146,13 @@ methodCheck method request
   | allowedMethod method request = return $ Route ()
   | otherwise                    = return $ Fail err405
 
-acceptCheck :: (AllMime list) => Bool -> Proxy list -> B.ByteString -> IO (RouteResult ())
+acceptCheck :: (AllMime list)
+            => Bool -> Proxy list -> B.ByteString -> IO (RouteResult ())
 acceptCheck isEmpty proxy accH
   | isEmpty || canHandleAcceptH proxy (AcceptHeader accH) = return $ Route ()
   | otherwise                                             = return $ Fail err406
+
+methodRouter :: Method -> Status ->
 
 methodRouter :: (AllCTRender ctypes a)
              => Bool -> Method -> Proxy ctypes -> Status

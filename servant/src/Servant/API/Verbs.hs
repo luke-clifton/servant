@@ -12,12 +12,12 @@ import           Network.HTTP.Types.Method (Method, StdMethod (..),
                                             methodDelete, methodGet, methodHead,
                                             methodPatch, methodPost, methodPut)
 
--- @Verb@ is a general type for representing HTTP verbs/methods. For
+-- | @Verb@ is a general type for representing HTTP verbs/methods. For
 -- convenience, type synonyms for each verb with a 200 response code are
 -- provided, but you are free to define your own:
 --
 -- >>> type Post204 contentTypes a = Verb 'POST 204 contentypes a
-data Verb (method :: StdMethod) (statusCode :: Nat) (contentTypes :: [k]) a
+data Verb (method :: k1) (statusCode :: Nat) (contentTypes :: [*]) a
   deriving (Typeable, Generic)
 
 -- 'GET' with 200 status code.
